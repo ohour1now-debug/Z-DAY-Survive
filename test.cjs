@@ -1,0 +1,14 @@
+const pp=require('puppeteer-core'),http=require('http'),fs=require('fs'),path=require('path');
+const srv=http.createServer((q,r)=>{const f=path.join(__dirname,decodeURIComponent(q.url.split('?')[0]));fs.readFile(f,(e,d)=>{if(e){r.writeHead(404);return r.end()}r.writeHead(200,{'Content-Type':f.endsWith('.js')?'text/javascript':'text/html'});r.end(d)})}).listen(8765);
+(async()=>{const b=await pp.launch({executablePath:'/usr/bin/google-chrome',headless:false,args:['--no-sandbox','--use-gl=swiftshader','--window-size=1280,800','--enable-unsafe-swiftshader']});
+const p=await b.newPage();await p.setViewport({width:1280,height:760});const errs=[];p.on('pageerror',e=>errs.push(e.message));p.on('console',m=>{if(m.type()=='error')errs.push(m.text())});
+await p.goto('http://localhost:8765/src/index.html');await p.waitForFunction('window.G');const s=ms=>new Promise(r=>setTimeout(r,ms));const sh=n=>p.screenshot({path:'/workspace/promo/survival-'+n+'.png'});
+await p.evaluate(()=>{G.start(false);G.P.x=0;G.P.z=38;G.P.yaw=0.3;G.setTime(600);G.add('wood',12);G.add('stone',6);G.add('cloth',4);G.add('pistol');G.add('ammo',16);G.P.eq='pistol';G.mkBuild('campfire',-2,34,0);G.mkBuild('wall',3,33,0)});
+await p.keyboard.down('KeyW');await s(1200);await p.keyboard.up('KeyW');await s(500);await sh('gameplay');
+await p.evaluate(()=>G.toggle('craft'));await s(300);await p.screenshot({path:'/workspace/promo/survival-crafting.png'});await p.evaluate(()=>G.toggle('inv'));await s(300);await sh('inventory');await p.evaluate(()=>G.toggle(null));
+await p.evaluate(()=>{const v=G.vehicles[0];G.P.x=v.x;G.P.z=v.z+2;G.interact();G.setTime(120)});await p.keyboard.down('KeyW');await s(1800);await p.keyboard.up('KeyW');await sh('vehicle');
+await p.evaluate(()=>{G.interact();const z=G.zombies;for(let i=0;i<8;i++){z[i].x=G.P.x+Math.sin(i)*8-2;z[i].z=G.P.z-8-i;z[i].state='chase'}G.P.yaw=0;G.P.pitch=-0.05;G.mkBuild('campfire',G.P.x+1,G.P.z-4,0)});await s(700);await sh('night-zombies');
+await p.evaluate(()=>{G.setTime(660);const h=G.horses[0];G.P.x=h.x;G.P.z=h.z+1;G.add('horsefeed');G.interact()});await p.keyboard.down('ShiftLeft');await p.keyboard.down('KeyW');await s(1500);await p.keyboard.up('KeyW');await p.keyboard.up('ShiftLeft');
+const st=await p.evaluate(()=>({ride:!!G.P.ride,hp:G.P.hp,z:G.zombies.length}));await sh('horse');
+await p.evaluate(()=>{G.P.ride&&G.interact();G.P.hp=-1;G.update(.01)});await s(200);const dead=await p.evaluate(()=>G.P.dead&&G.containers.some(c=>c.name=='Loot Bag'));
+console.log(JSON.stringify({errs,st,dead}));await b.close();srv.close()})();
